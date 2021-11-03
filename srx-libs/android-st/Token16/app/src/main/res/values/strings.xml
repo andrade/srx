@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Token16</string>
+
+    <string name="dismiss">Dismiss</string>
+
+    <string name="positive">OK</string>
+    <string name="negative">Cancel</string>
+
+    <string name="proceed">Proceed</string>
+    <string name="reject">Reject</string>
+</resources>

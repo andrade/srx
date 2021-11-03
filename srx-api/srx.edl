@@ -1,0 +1,212 @@
+enclave {
+
+	include "srx_error.h"
+
+	from "sgx_tprotected_fs.edl" import *;
+
+	trusted {
+		include "stdint.h"
+
+		/**
+		** Pairs the platform with ST. Done only once.
+		**
+		** Initializes internal data structures.
+		** The enclave state is serialized, encrypted, and saved to disk.
+		**
+		** @param[in]   save_path  The location for storing the enclave state
+		**
+		** @return      Returns zero on success, or non-zero otherwise.
+		**/
+		public srx_status ecall_srx_init([in, string] const char *save_path);
+
+		/**
+		** Requests user authorization.
+		**
+		** Placed in trusted code before a sensitive operation is executed.
+		** Forces an authorization request, via ST, from user.
+		**
+		** @param[in]   load_path  The location for loading the enclave state
+		** @param[in]   str        The text to display on the security token
+		** @param[in]   len        The length of the string `str`
+		**
+		** @return      Returns zero on success, or non-zero otherwise.
+		**              Returns SRX_NO_PERM when the platform has no permission.
+		**              Returns SRX_NO_AUTH when the user rejects the operation.
+		**/
+		srx_status ecall_srx_auth([in, string] const char *load_path,
+				[in, string] const char *str, size_t len);
+
+		/**
+		** Retrieves a secret key shared by all platforms.
+		**
+		** A user-authorization request is enforced when policy is 1.
+		** This ensures the secret key is not returned by SRX without
+		** the knowledge, and permission, of the user.
+		** When the policy is 0, the secret key is retrived to platforms
+		** in the group without performing a user-authorization request.
+		**
+		** @param[in]   load_path  The location for loading the enclave state
+		** @param[in]   salt       The salt to derive different keys
+		** @param[in]   n          The length of `salt`
+		** @param[out]  sk         The destination buffer for the secret key
+		** @param[in]   len        The length of the key, and min. cap. of `sk`
+		** @param[in]   policy     The policy is 1 to request authorization, or
+		**                         0 to not request user authorization via ST
+		**
+		** @return      Returns zero on success, or non-zero otherwise.
+		**              Returns SRX_NO_PERM when the platform has no permission.
+		**              Returns SRX_NO_AUTH when the user rejects the operation.
+		**
+		** @see         #ecall_srx_auth()
+		**/
+		srx_status ecall_srx_get_sk([in, string] const char *load_path,
+				[in, size=1, count=n] const uint8_t *salt, size_t n,
+				[out, size=1, count=len] uint8_t *sk, size_t len, int policy);
+
+		/**
+		** Prepares a platform for pairing with ST.
+		**
+		** @param[out]  dest       The output buffer
+		** @param[in]   capacity   The capacity of the output buffer
+		** @param[out]  size       The amount of data in the output buffer
+		**
+		** @return      Returns zero on success, or non-zero otherwise.
+		**
+		** @see         #ecall_srx_add_rp()
+		**/
+		public srx_status ecall_srx_init_rp([out, size=capacity] void *dest,
+				size_t capacity, [out] size_t *size);
+
+		/**
+		** Adds a platform to the set of platforms.
+		**
+		** The platform is added to the Security Token, and
+		** the SRX state is re-sealed and saved to disk.
+		** After a successful execution of this ecall, the
+		** new platform is part of the group of platforms.
+		**
+		** @param[in]   path       The location to load/save the SRX state
+		** @param[in]   data       The details of the new platform
+		** @param[in]   size       The size of `data`
+		**
+		** @return      Returns zero on success, or non-zero otherwise.
+		**              Returns SRX_NO_AUTH when the user rejects the operation.
+		**
+		** @see         #ecall_srx_init_rp()
+		**/
+		public srx_status ecall_srx_add_rp([in, string] const char *path,
+				[in, size=size] const void *data, size_t size);
+
+		/**
+		** Removes a platform from the access set.
+		**
+		** The platform is removed from the Security Token, and
+		** the SRX state is updated, re-sealed and saved to disk.
+		**
+		** @param[in]   path       The location to load/save the SRX state
+		** @param[in]   rpid       The ID of the platform to remove
+		**
+		** @return      Returns zero on success, or non-zero otherwise.
+		**              Returns SRX_NO_SELF when removing itself.
+		**              Returns SRX_NO_AUTH when the user rejects the operation.
+		**              Returns SRX_NO_ENT when this `rpid` does not exist.
+		**
+		** @see         #ecall_srx_list()
+		**/
+		public srx_status ecall_srx_remove_rp([in, string] const char *path,
+				uint64_t pid);
+
+		/**
+		** Lists the platforms in the access set.
+		**
+		** @param[out]  pids       The output array with the platform IDs
+		** @param[in]   capacity   The length of `pids`
+		** @param[out]  count      The number of platforms placed in `pids`
+		** @param[in]   path       The location for loading the enclave state
+		**
+		** @return      Returns zero on success, or non-zero otherwise.
+		**              Returns SRX_NO_MEM if `pids` is not long enough.
+		**/
+		public srx_status ecall_srx_list([out, count=capacity] uint64_t *pids,
+				size_t capacity, [out] size_t *count,
+				[in, string] const char *path);
+
+		/**
+		** Dumps the internal state of SRX.
+		**
+		** WARNING: This function is only available in debug mode.
+		**
+		** @param[out]  s          The output string
+		** @param[in]   capacity   The capacity of `s`
+		** @param[in]   path       The location for loading the enclave state
+		**
+		** @return      Returns zero on success, or non-zero otherwise.
+		**/
+		public int ecall_srx_dump([out, size=capacity] char *s, size_t capacity,
+				[in, string] const char *path);
+	};
+	untrusted {
+
+		/**
+		** Reads data from persistent storage.
+		**
+		** Reads a max of `n` bytes of data from `path`.
+		** If `n` bytes is insufficient to store all the data, returns error.
+		**
+		** This ocall is implemented by the caller of the SRX library.
+		**
+		** @return      Returns zero on success, or non-zero otherwise.
+		**
+		** @see         #ocall_srx_write()
+		*/
+		uint8_t ocall_srx_read([in, string] const char *path,
+				[out, size=1, count=n] uint8_t *data, uint32_t n);
+
+		/**
+		** Writes data to persistent storage.
+		**
+		** Writes `n` bytes from `data` to `path`.
+		**
+		** This ocall is implemented by the caller of the SRX library.
+		**
+		** @return      Returns zero on success, or non-zero otherwise.
+		**
+		** @see         #ocall_srx_read()
+		**/
+		uint8_t ocall_srx_write([in, string] const char *path,
+				[in, size=1, count=n] uint8_t *data, uint32_t n);
+
+		/**
+		** Exchanges data with RAS.
+		**
+		** Sends `data_in` to the server, and receives `data_out` in response.
+		**
+		** This ocall is implemented by the caller of the SRX library.
+		**
+		** @return      Returns zero on success, or non-zero otherwise.
+		**/
+		int server_io(
+				[in, size=1, count=size_in] const void *data_in,
+				size_t size_in,
+				[out, size=1, count=size_out] void *data_out,
+				size_t size_out,
+				[out] size_t *bytes_read) allow (ecall_srx_init);
+
+		/**
+		** Exchanges data with ST.
+		**
+		** This ocall is implemented by the caller of the SRX library.
+		**
+		** @param[out]  bytes_read  The amount of bytes read from ST, and
+		**                          placed in the output buffer
+		**
+		** @return      Returns zero on success, or non-zero otherwise.
+		**/
+		int token_io(
+				[in, size=1, count=size_in] const void *data_in,
+				size_t size_in,
+				[out, size=1, count=size_out] void *data_out,
+				size_t size_out,
+				[out] size_t *bytes_read) allow (ecall_srx_init);
+	};
+};

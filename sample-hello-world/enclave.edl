@@ -1,0 +1,19 @@
+enclave {
+
+	// imports the generic interface
+	from "srx.edl" import *;
+
+	trusted {
+		/**
+		** Adds two numbers.
+		**
+		** Authentication via SRX is called inside this function.
+		**
+		** Returns the result of adding a and b.
+		**/
+		public int soma(int a, int b);
+	};
+	untrusted {
+		void dump_str([in, string] const char *str);
+	};
+};

@@ -1,0 +1,12 @@
+enclave {
+    from "sgx/util.edl" import *;
+    from "sgx_tsgxssl.edl" import *; /* contains sgx_tae_service.edl */
+    /*from "sgx_tae_service.edl" import *;*/
+
+    trusted {
+        public int tests_exhaustive_main(void);
+    };
+    untrusted {
+        /*void ocall_print(int stream, [in, string] const char *str);*/
+    };
+};

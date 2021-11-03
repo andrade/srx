@@ -1,0 +1,35 @@
+-- Protocol to communicate with server
+
+ServerProtocol DEFINITIONS ::= BEGIN
+
+	Message ::= SEQUENCE {
+		head            Head,
+		body            Body OPTIONAL
+	}
+
+	Head ::= SEQUENCE {
+		version         INTEGER {
+			version-1-0 (0)             -- version 1.0
+		} (0..MAX),
+		operation       ENUMERATED {
+			none    (0),                -- no op
+			sig-req (1),                -- signature request
+			sig-rep (2)                 -- signature reply
+		}
+	}
+	-- Specifying `operation` in `Head` facilitates ops with no `Body`
+
+	Body ::= CHOICE {
+		sig-req         [1]   SignatureRequest,
+		sig-rep         [2]   SignatureResponse,
+		...
+	}
+
+	SignatureRequest ::= SEQUENCE {
+		data       OCTET STRING         -- data to sign
+	}
+
+	SignatureResponse ::= SEQUENCE {
+		ras-sig    OCTET STRING         -- signature over the data by the RAS
+	}
+END

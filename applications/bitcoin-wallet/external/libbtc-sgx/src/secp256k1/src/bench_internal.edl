@@ -1,0 +1,8 @@
+enclave {
+    from "sgx/util.edl" import *;
+    from "sgx_tae_service.edl" import *;
+
+    trusted {
+        public int bench_internal_main(int argc, [in, count=argc] char **argv);
+    };
+};

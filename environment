@@ -1,0 +1,36 @@
+echo "current path is `pwd -L`"
+echo "script  path is `dirname "$BASH_SOURCE"`"
+
+export SRX_HOME=$(readlink --canonicalize "$(dirname "$BASH_SOURCE")")
+
+# Location of the SRX API (EDL and header files)
+export SRX_API=$(readlink --canonicalize "$(dirname "$BASH_SOURCE")/srx-api")
+
+export SRX_SDK=$(readlink --canonicalize "$(dirname "$BASH_SOURCE")/srx-libs/android-st/client")
+
+# obsolete, don't use two bellow... need fixing, namely with suffix EDL....
+#export EDL_INC_PATH=$(readlink --canonicalize "$(dirname "$BASH_SOURCE")/support-libs/usgx/include")
+#export EDL_LIB_PATH=$(readlink --canonicalize "$(dirname "$BASH_SOURCE")/support-libs/usgx")
+
+export SRX_USGX=$(readlink --canonicalize "$(dirname "$BASH_SOURCE")/support-libs/usgx")
+
+export SRX_COMMON_INC=$(readlink --canonicalize "$(dirname "$BASH_SOURCE")/srx-libs/android-st/common/include")
+export SRX_COMMON_LIB=$(readlink --canonicalize "$(dirname "$BASH_SOURCE")/srx-libs/android-st/common")
+
+export SRX_PROTOCOL=$(readlink --canonicalize "$(dirname "$BASH_SOURCE")/srx-libs/android-st/protocol")
+#export SRX_PROTOCOL_LIB=$(readlink --canonicalize "$(dirname "$BASH_SOURCE")/srx-libs/android-st/protocol")
+
+export FOOSSL_INCLUDE=$(readlink --canonicalize "$(dirname "$BASH_SOURCE")/support-libs/foossl/include")
+export FOOSSL_LIBRARY=$(readlink --canonicalize "$(dirname "$BASH_SOURCE")/support-libs/foossl/static")
+
+# OpenSSL 1.1.1a (20 Nov 2018)
+export SRX_OPENSSL="/home/daniel/.usr/openssl-1.1.1a"
+
+# The keys of our server in PEM format
+#export SRX_SERVER_PEM_PRIV=$(readlink --canonicalize "$(dirname "$BASH_SOURCE")/support-libs/foossl/tls/key.pem")
+#export SRX_SERVER_PEM_PUB=$(readlink --canonicalize "$(dirname "$BASH_SOURCE")/support-libs/foossl/tls/cert.pem")
+
+# ASN.1 to C compiler, `asn1c`, version 0.9.28
+# Skels already in code. Only need compiler if gen'd source not in repo.
+# source: https://github.com/vlm/asn1c/tree/v0.9.28
+export SRX_ASN1C_BIN="/home/daniel/.usr/asn1c-0.9.28/bin/asn1c"

@@ -1,0 +1,61 @@
+include_HEADERS += include/secp256k1_recovery.h
+noinst_HEADERS += src/modules/recovery/main_impl.h
+noinst_HEADERS += src/modules/recovery/tests_impl.h
+if USE_BENCHMARK
+noinst_PROGRAMS += bench_recover
+bench_recover_SOURCES = src/bench_recover_bootstrap.c
+bench_recover_LDADD = $(SECP_LIBS) $(COMMON_LIB)
+if !ENABLE_SGX
+bench_recover_SOURCES += src/bench_recover.c
+bench_recover_LDADD += libsecp256k1.la
+else
+BENCH_RECOVER_ENCLAVE := bench_recover.enclave.so
+BENCH_RECOVER_ESIGNED := bench_recover.enclave.signed.so
+
+BUILT_SOURCES += src/bench_recover_u.c src/bench_recover_u.h src/bench_recover_t.c src/bench_recover_t.h
+
+src/bench_recover_u.c src/bench_recover_u.h: $(SGX_EDGER8R) src/bench_recover.edl
+	@cd src && $(SGX_EDGER8R) --untrusted bench_recover.edl \
+			--search-path $(SGX_SDK)/include --search-path $(SGX_SSL)/include
+	@echo "GEN  =>  $@"
+
+src/bench_recover_u.o: src/bench_recover_u.c src/bench_recover_u.h
+	@$(CC) $(SGX_APP_CFLAGS) -c $< -o $@
+	@echo "CC   <=  $<"
+
+src/bench_recover_t.c src/bench_recover_t.h: $(SGX_EDGER8R) src/bench_recover.edl
+	@cd src && $(SGX_EDGER8R) --trusted bench_recover.edl \
+			--search-path $(top_srcdir)/src \
+			--search-path $(SGX_SDK)/include --search-path $(SGX_SSL)/include
+	@echo "GEN  =>  $@"
+
+src/bench_recover_t.o: src/bench_recover_t.c src/bench_recover_t.h
+	@$(CC) $(SGX_ENCLAVE_CFLAGS) -c $< -o $@
+	@echo "CC   <=  $<"
+
+src/bench_recover.o: src/bench_recover.c
+	@$(CC) $(SGX_ENCLAVE_CFLAGS) -DHAVE_CONFIG_H \
+			-DSECP256K1_BUILD -DVERIFY -I. -I./src -I$(top_srcdir)/src -I$(top_srcdir)/include \
+			$(SECP_INCLUDES) $(SECP_TEST_INCLUDES) \
+			-I/usr/include/x86_64-linux-gnu/ \
+			-c $< -o $@
+	@echo "CC   <=  $<"
+
+BENCH_RECOVER_ENCLAVE_OBJS = src/sgx/t/util.o src/bench_recover_t.o src/bench_recover.o
+
+src/$(BENCH_RECOVER_ENCLAVE): $(BENCH_RECOVER_ENCLAVE_OBJS) $(LIBSECP256K1_A)
+	$(CXX) $(SGX_ENCLAVE_CXXFLAGS) $(SGX_ENCLAVE_LDFLAGS) $^ -o  $@ $(SGX_ENCLAVE_LDLIBS)
+	@echo "LINK =>  $@"
+
+src/$(BENCH_RECOVER_ESIGNED): src/$(BENCH_RECOVER_ENCLAVE) $(SGX_KEY)
+	@cd src && $(SGX_SIGN) sign -key $(SGX_KEY) \
+			-enclave $(BENCH_RECOVER_ENCLAVE) -out $(BENCH_RECOVER_ESIGNED) \
+			-config $(ENCLAVE_CONFIG_FILE)
+	@echo "SIGN =>  $@"
+
+bench_recover_SOURCES += src/bench_recover_u.c src/bench_recover_u.h src/sgx/u/util.c
+bench_recover_CFLAGS = $(SGX_APP_CFLAGS)
+bench_recover_LDFLAGS = $(SGX_APP_LDFLAGS)
+bench_recover_LDADD += $(SGX_APP_LDLIBS) src/$(BENCH_RECOVER_ESIGNED)
+endif
+endif

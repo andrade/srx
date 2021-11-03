@@ -1,0 +1,83 @@
+// Copyright 2019 Daniel Andrade
+// SPDX-License-Identifier:  MIT
+
+enclave {
+
+	from "sgx_tprotected_fs.edl" import *;
+	from "sgx_tsgxssl.edl" import *; // erro: sgx_oc_cpuidex / in FS Lib?
+
+	from "srx.edl" import *;
+	//TODO limit to necessary functions
+
+	include "stdbool.h"
+	include "time.h"
+
+	trusted {
+		public void ecall_sample();
+
+
+		// source file: `cmd_ui.x`
+
+		public bool titan_ecall_init_database([in, string] const char *path);
+
+		//TORM, OBSOLETE
+		// decrypts the database at `path`
+		public bool titan_ecall_decrypt_database([in, string] const char *path);
+
+		//TORM, OBSOLETE
+		// encrypts, and closes, the database currently loaded into the enclave
+		// public bool encrypt_database();
+		public bool titan_ecall_encrypt_database(bool close);
+
+		public bool titan_ecall_add_new_entry(
+				[in, string] const char *title,
+				[in, string] const char *user,
+				[in, string] const char *url,
+				[in, string] const char *notes,
+				[in, string] const char *pass);
+
+		/**
+		** Returns true when the entry is removed or not present at all.
+		** Sets `updated_db` when the database changes (entry was present).
+		**/
+		public bool titan_ecall_remove_entry(int id, [out] bool *updated_db);
+
+		public void titan_ecall_list_by_id(int id, int show_password);
+
+		public void titan_ecall_list_all(int show_password, int latest_count);
+	};
+
+	untrusted {
+		/**
+		** Writes the string to the given stream.
+		**
+		** The stream is either `1` for stdout or `2` for stderr.
+		**/
+		void usgx_ocall_print(int stream, [in, string] const char *str);
+
+
+		// untrusted source file: `utils.c`
+
+		void titan_ocall_print_entry(int id,
+				[in, string] char *title,
+				[in, string] char *user,
+				[in, string] char *url,
+				[in, string] char *password,
+				[in, string] char *notes,
+				[in, string] char *stamp,
+				int show_password);
+
+		// retrieve database path
+		// caller allocates path with at least size `capacity`
+		int titan_ocall_read_active_database_path([out, size=capacity] char *path, size_t capacity);
+
+
+		// SQLite SGX (to integrate with other project, TODO)
+		int sqlite3_ocall_time64([out] long long *time);
+
+		int sqlite3_ocall_localtime([in] const time_t *input,
+				[out] struct tm *output);
+
+		void ocall_csp_poke(int id, int pos);
+	};
+};

@@ -1,0 +1,18 @@
+enclave {
+
+	//version: 1.0.0  (Jul 2018)
+
+	trusted {
+		/** Unable to compile without at least one public root ECALL. */
+		public void usgx_ecall_dummy();
+	};
+
+	untrusted {
+		/**
+		** Writes the string to the given stream.
+		**
+		** The stream is either `1` for stdout or `2` for stderr.
+		**/
+		void usgx_ocall_print(int stream, [in, string] const char *str);
+	};
+};

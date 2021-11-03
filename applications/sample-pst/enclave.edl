@@ -1,0 +1,52 @@
+enclave {
+
+	// imports the generic interface
+	from "srx.edl" import *;
+
+	// The phone implementation of the SRX uses SGX SSL
+	// from "sgx_tsgxssl.edl" import *; // erro: sgx_oc_cpuidex / in FS Lib?
+
+	from "usgx/util.edl" import *;
+
+	trusted {
+
+		/**
+		** Triggers the SRX authorization operation.
+		**
+		** Returns the return value of the call to `ecall_srx_auth`.
+		**/
+		public srx_status trigger_auth([in, string] const char *path);
+
+		/**
+		** Triggers the SRX operation to retrieve secret key.
+		**
+		** Returns the return value of the call to `ecall_srx_get_sk`.
+		**/
+		public srx_status trigger_get_sk([in, string] const char *path,
+				[in, size=1, count=n] const uint8_t *salt, size_t n,
+				[out, size=1, count=len] uint8_t *sk, size_t len, int policy);
+
+		/**
+		** Triggers the SRX operation to add a RP.
+		**
+		** Returns the return value of the call to `ecall_srx_add_rp`.
+		**/
+		public srx_status trigger_add_rp([in, string] const char *path,
+				[in, size=n] const void *p, size_t n);
+
+		/**
+		** Triggers the SRX operation to remove a RP.
+		**
+		** Returns the return value of the call to `ecall_srx_remove_rp`.
+		**/
+		public srx_status trigger_remove_rp([in, string] const char *path,
+				uint64_t rpid);
+
+		public srx_status trigger_list([out, count=capacity] uint64_t *pids,
+				size_t capacity, [out] size_t *count,
+				[in, string] const char *path);
+	};
+	untrusted {
+		void dump_str([in, string] const char *str);
+	};
+};

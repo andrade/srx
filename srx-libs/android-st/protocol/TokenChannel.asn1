@@ -1,0 +1,127 @@
+-- Protocol to communicate with token (for the ENC/MAC channel layer)
+
+TokenChannel DEFINITIONS ::= BEGIN
+
+	--IMPORTS PlatformID FROM CommonMessages;
+
+	--TokenMessage ::= CHOICE {
+	--	auth     [1] TokenChannelMessageEnc,
+	--	init-ap  [2] TokenInitAP,
+	--	init-rp  [3] TokenChannelMessageEnc
+	--}
+
+	-- An encrypted exchange (where ciphertext can be DER-encoded ASN.1 message)
+	TokenChannelMessageEnc ::= SEQUENCE {
+		nonce           OCTET STRING,           -- encryption nonce
+		ciphertext      OCTET STRING,           -- encrypted resp-nonce||data
+		tag             OCTET STRING,           -- authentication tag
+		ad              OCTET STRING            -- associated data
+	}
+
+	-- Response, not shown here, is HMAC(resp-nonce|data') with shared MAC key
+
+
+
+
+
+	--NOTE  Preparamos o TokenMessage em token.c, e depois isso é enviado para o exchange message que trata da parte ASN.1 de transporte (DeviceL6)
+
+
+
+	-- Device base/root layer 6
+	DeviceL6 ::= [15] CHOICE {
+		cleartext      [1]  DeviceCleartextL6,
+		encrypted      [2]  DeviceEncryptedL6
+	}
+
+	-- A cleartext exchange
+	DeviceCleartextL6 ::= SEQUENCE {
+		cleartext  OCTET STRING
+	}
+
+	-- An encrypted exchange
+	-- The ciphertext is a DER-encoded-then-encrypted `TokenMessage` message
+	DeviceEncryptedL6 ::= SEQUENCE {
+		nonce           OCTET STRING,           -- encryption nonce
+		ciphertext      OCTET STRING,           -- encrypted data
+		tag             OCTET STRING,           -- authentication tag
+		ad              OCTET STRING            -- associated data
+	}
+
+	--
+	-- ABOVE:   Layer 6, handles cleartext/encrypted messages
+	-- BELOW:   Protocol layer, actual data that we want to transfer
+	--
+
+	-- A protocol message (sent as cleartext or encrypted)
+	-- When encrypted we do not know the type of message exchanged, however,
+	-- it may still be feasible to infer something from its size.
+	TokenMessage ::= SEQUENCE {
+		request    CHOICE {
+			auth     [1] TokenAuth,             -- authorize operation
+			init-ap  [2] TokenInitAP,           -- initialize the AP
+			init-rp  [3] TokenInitRP,           -- initialize a RP
+			remove-rp[4] TokenRemoveRP,         -- remove a RP
+			replace  [5] TokenReplace           -- replace the AP
+			-- ...
+			-- add other ops here, and definition of message below...
+		},
+		nonce-mac  OCTET STRING                 -- nonce for response
+	}
+
+	-- Response codes are generic and common to all messages
+	-- The reponse codes follow the message handling process on the token -TODO
+	TokenRC ::= INTEGER {
+		success (0),                    -- success / OK / proceed
+		failure (1),                    -- generic failure
+		no-perm (2),                    -- platform has no access
+		no-auth (3)                     -- user denies access
+	}
+	-- Future work: each request could have its own specific RCs in addition
+	-- to the core RCs applied to all messages.
+
+	-- OBSOLETE, use one above... in future can add more codes
+	TEMPTokenRC ::= INTEGER {
+		tokenRC-SUCCESS (0),                    -- success / OK / proceed
+		tokenRC-FAILURE (1),                    -- generic failure
+		tokenRC-BAD-TAG (2),                    -- (request) tag mismatch
+		tokenRC-INVALID-REQ (3),                -- invalid request
+		tokenRC-INVALID-PAR (4),                -- invalid parameters
+		tokenRC-INVALID-SIG (5)                 -- invalid signature
+	}
+
+	-- Authorizes a sensitive operation
+	TokenAuth ::= SEQUENCE {
+		display-text    UTF8String(SIZE(1..512))-- text to display to user
+	}
+
+	-- Initializes the Administrator Platform and the Security Token
+	-- Exchanged only once while the system is not compromised
+	TokenInitAP ::= SEQUENCE {
+		platform-id     OCTET STRING,           -- details of the AP
+		ras-sig         OCTET STRING,           -- signature from the RAS
+
+		sk-enc          OCTET STRING,           -- secret key for encryption
+		sk-mac          OCTET STRING            -- secret key for MAC'ing
+	}
+	--TODO  Also use DER-encoded PlatformID like for init RP? Then ST verifies and extracts stuff from there.
+
+	TokenInitRP ::= SEQUENCE {
+		platform-id     OCTET STRING,   -- details of the RP
+		ras-sig         OCTET STRING    -- signature over `platform-id` by RAS
+	}
+	-- The `platform-id` is a DER-encoded `PlatformID` message.
+	-- This is the same message sent to the RAS for signing.
+	-- The message is sent to the ST encoded due to the risk of different
+	-- ASN.1 implementations encoding it differently which would result in
+	-- different signatures. Plus this way the ST doesn't have to encode
+	-- the message to verify it, and performs a decoding instead.
+
+	TokenRemoveRP ::= SEQUENCE {
+		rpid            INTEGER(0..MAX)         -- platform ID
+	}
+
+	TokenReplace ::= SEQUENCE {
+		rpid            INTEGER(0..MAX)         -- platform ID
+	}
+END

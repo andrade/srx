@@ -1,0 +1,5 @@
+enclave {
+    untrusted {
+        void ocall_print(int stream, [in, string] const char *str);
+    };
+};

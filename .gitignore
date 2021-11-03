@@ -1,0 +1,14 @@
+**/*.a
+**/*.o
+**/*.so
+
+**/*.pem
+
+**/*_[tu].[hc]
+
+.tags
+
+**/app_ex
+
+# Data and test files of SRX
+**/*.srx

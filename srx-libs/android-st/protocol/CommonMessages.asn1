@@ -1,0 +1,18 @@
+-- Messages common to all nodes
+
+CommonMessages DEFINITIONS ::= BEGIN
+
+	-- Holds the (non-private) keying material and identification of a platform
+	PlatformID ::= SEQUENCE {
+		comm-nonce      OCTET STRING,           -- communication nonce
+		comm-pub        OCTET STRING,           -- communication public key
+		seal-nonce      OCTET STRING,           -- sealing nonce
+		seal-pub        OCTET STRING,           -- sealing public key
+		pid             INTEGER(0..MAX)         -- platform ID
+	}
+
+	SignedPlatformID ::= SEQUENCE {
+		pid             OCTET STRING,   -- DER-encoded `PlatformID` message
+		sig             OCTET STRING    -- signature over `pid` by the RAS
+	}
+END
